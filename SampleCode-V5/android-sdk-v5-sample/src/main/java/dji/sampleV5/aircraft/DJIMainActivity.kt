@@ -227,6 +227,7 @@ abstract class DJIMainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        msdkManagerVM.destroyMobileSDK()
         handler.removeCallbacksAndMessages(null)
         disposable.dispose()
     }

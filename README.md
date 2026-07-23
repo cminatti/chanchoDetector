@@ -1,94 +1,102 @@
-# DJI Mobile SDK for Android V5 Latest Version 5.17.0
+# chanchoDetector
 
-[中文版](README_CN.md)
+**chanchoDetector** es una aplicación Android especializada para drones DJI (Enterprise), diseñada para la detección y monitoreo de objetos en movimiento, con un enfoque específico en la identificación de fauna (porcinos) en entornos rurales o de campo.
 
-## What is DJI Mobile SDK V5?
+## Objetivo
 
-DJI Mobile SDK V5 has a series of APIs to control the software and hardware interfaces of an aircraft. We provide an open source production sample and a tutorial for developers to develop a more competitive drone solution on mobile device. This improves the experience and efficiency of MSDK App development.
+El objetivo principal del proyecto es proporcionar a los operadores de drones una herramienta capaz de analizar el flujo de video en tiempo real para detectar actividad y movimiento de animales automáticamente. Esto permite optimizar las tareas de vigilancia, conteo y monitoreo sin depender exclusivamente de la observación manual continua por parte del piloto.
 
-Supported Product:
-* [DJI Mavic 3TA]()
-* [Matrice 400]()
-* [Matrice 4D Enterprise Series]()
-* [DJI Mini4 PRO](https://www.dji.com/cn/mini-4-pro?from=store-product-page)
-* [Matrice 4 Enterprise Series](https://enterprise.dji.com/cn/matrice-4-series)
-* [H30 Series](https://enterprise.dji.com/cn/zenmuse-h30-series)
-* [DJI Mini3 Pro](https://www.dji.com/cn/mini-3-pro?site=brandsite&from=landing_page)
-* [DJI Mini3](https://www.dji.com/cn/mini-3?site=brandsite&from=landing_page)
-* [Mavic 3 Enterprise Series](https://www.dji.com/cn/mavic-3-enterprise)
-* [M30 Series](https://www.dji.com/matrice-30?site=brandsite&from=nav)
-* [M300 RTK](https://www.dji.com/matrice-300?site=brandsite&from=nav)
-* [Matrice 350 RTK](https://enterprise.dji.com/cn/matrice-350-rtk)
-* [DJI Mavic 3TA]()
+## Estado del Proyecto
 
-## Project Directory Introduction
+Actualmente, el proyecto se encuentra en su **versión funcional y estable (v1.0)**. 
+- La integración con el SDK de DJI es robusta.
+- El sistema de detección base por movimiento es operativo.
+- La arquitectura está preparada para la escalabilidad hacia modelos de Inteligencia Artificial avanzados.
 
-```
-├── Docs
-│   └── Android_API
-├── LICENSE.txt
-├── README.md
-├── README_CN.md
-└── SampleCode-V5
-    ├── android-sdk-v5-as
-    ├── android-sdk-v5-sample
-    └── android-sdk-v5-uxsdk
-```
+## Tecnologías Utilizadas
 
+- **Android Studio**: Entorno de desarrollo integrado (IDE).
+- **Kotlin**: Lenguaje de programación principal.
+- **DJI Mobile SDK V5**: Librería oficial para la comunicación y control de aeronaves DJI serie Enterprise.
+- **Gradle**: Sistema de gestión de dependencias y construcción.
+- **Android SDK (API 35)**: Base del sistema operativo.
+- **Maplibre**: Motor de mapas integrado para visualización geoespacial.
+- **View Binding**: Para una interacción segura y eficiente con la interfaz de usuario.
 
-### Software License
+## Arquitectura
 
-The DJI Android SDK is dynamically linked with unmodified libraries of <a href=http://ffmpeg.org>FFmpeg</a> licensed under the <a href=https://www.gnu.org/licenses/lgpl-2.1.html.en>LGPLv2.1</a>. The source code of these FFmpeg libraries, the compilation instructions, and the LGPL v2.1 license are provided in [Github](https://github.com/dji-sdk/FFmpeg). The DJI Sample Code V5 in this repo is offered under MIT License.
+El proyecto sigue una arquitectura modular y desacoplada basada en los siguientes componentes:
 
+### Módulos Principales
+- **`:sample`**: Contiene la lógica de la aplicación, las actividades personalizadas y el flujo principal del usuario.
+- **`:uxsdk`**: Librería de componentes visuales (widgets) de DJI para control de cámara, batería y estado del dron.
 
-### Sample Explanation
+### Desacoplamiento de Procesamiento
+Se ha implementado el patrón de diseño a través de la interfaz **`FrameProcessor`**.
+- **Propósito**: Desacoplar la lógica de análisis de imágenes de la interfaz de usuario (`ChanchoDetectorActivity`).
+- **Ventaja**: Permite intercambiar el algoritmo de detección (ej. cambiar Detección de Movimiento por YOLO Nano) sin modificar el código de la actividad, facilitando el mantenimiento y las pruebas.
 
-Sample can be divided into three parts:
+## Funcionalidades Implementadas
 
-- Scenographic Example: Provides scenographic sample support of aircraft.
-- Sample Module: Offer an Airplane Sample App.
+- **Transmisión de Video en Vivo**: Visualización en tiempo real de la cámara del dron.
+- **Detección de Movimiento**: Identificación de cambios en los frames de video para marcar regiones de interés.
+- **Overlay de Detección**: Dibujo de cuadros verdes en pantalla sobre los objetos detectados.
+- **Alertas Hápticas**: El dispositivo vibra automáticamente al detectar movimiento confirmado en el área.
+- **Gestión de Ciclo de Vida**: Inicialización y liberación automática de recursos del SDK de DJI para evitar fugas de memoria.
+- **Navegación Integrada**: Acceso a herramientas de diagnóstico y control oficial de DJI.
 
-For detailed configuration, please refer to [settings.gradle](SampleCode-V5/android-sdk-v5-as/settings.gradle).
+## Flujo de Funcionamiento
 
-Scenographic Example：
+1. **Inicio**: Al abrir la app, se inicia el proceso de registro automático del SDK de DJI.
+2. **Conexión**: Se establece el enlace con el control remoto y la aeronave.
+3. **Activación**: El usuario presiona el botón "CHANCHO DETECTOR" en la pantalla principal.
+4. **Análisis**: La app comienza a recibir frames YUV del dron.
+5. **Detección**: El `FrameProcessor` analiza el movimiento y actualiza el overlay visual y las alertas de vibración.
 
-- uxsdk: Scenographic Example. Currently only aircraft are supported.
+## Requisitos
 
-Sample module:
+- **Android**: Mínimo Android 7.0 (API 24).
+- **Arquitectura**: Dispositivo con procesador ARM64-v8a (Requerido por MSDK V5).
+- **Hardware**: Dron DJI compatible con SDK v5 (Mavic 3E, Matrice 30, etc.).
+- **Permisos**: Ubicación (Fine/Coarse), Almacenamiento, Micrófono, Vibración y Acceso USB.
 
-- sample：Compile aircraft sample App, which depends on uxsdk.
+## Compilación
 
-## Integration
+Para compilar el proyecto:
+1. Abrir en **Android Studio Ladybug (o superior)**.
+2. Sincronizar Gradle.
+3. Ejecutar el comando:
+   ```bash
+   ./gradlew :sample:assembleDebug
+   ```
 
-For further detail on how to integrate the DJI Android SDK into your Android Studio project, please check the tutorial:
-- [Notice of Run MSDK](https://developer.dji.com/doc/mobile-sdk-tutorial/en/quick-start/user-project-caution.html)
+## Ejecución
 
-## AAR Explanation
+1. Conectar un dispositivo físico Android (ARM64) al control remoto de DJI.
+2. Desplegar el módulo `:sample`.
+3. Otorgar los permisos solicitados en la primera ejecución.
+4. **Nota**: El video no funcionará en emuladores debido a la falta de hardware de decodificación y comunicación de DJI.
 
-> **Notice:** sdkVersion = 5.17.0
+## Roadmap (Próximas Implementaciones)
 
-| SDK package | Explanation | How to use|
-| :---------------: | :-----------------:  | :---------------: |
-|     dji-sdk-v5-aircraft      | Aircraft main package, which provides support for MSDK to control the aircraft. | implementation 'com.dji:dji-sdk-v5-aircraft:{sdkVersion}' |
-| dji-sdk-v5-aircraft-provided | Aircraft compilation package, which provides interfaces related to the aircraft package. | compileOnly 'com.dji:dji-sdk-v5-aircraft-provided:{sdkVersion}' |
-| dji-sdk-v5-networkImp | Network library package, which provides network connection ability for MSDK. Without this dependency, all network functions of MSDK will not work, but the interfaces of hardware control can be used normally. | runtimeOnly 'com.dji:dji-sdk-v5-networkImp:{sdkVersion}' |
+- **Integración de YOLO Nano**: Implementación de un `FrameProcessor` basado en redes neuronales para detección específica de chanchos.
+- **Optimización del Procesamiento**: Mejora en los tiempos de inferencia y reducción de consumo de batería.
+- **Mejoras de Rendimiento**: Uso de corrutinas para el análisis de frames en hilos dedicados.
+- **Mejoras de Seguridad**: Migración de credenciales a un sistema de gestión de secretos seguro.
+- **Documentación Técnica**: Ampliación de la documentación de la API interna.
+- **Optimización de Campo**: Ajustes de UI para alta visibilidad bajo luz solar directa.
 
-- If only the aircraft product is in need to support, please use:
+## Seguridad
 
-  ```groovy
-  implementation 'com.dji:dji-sdk-v5-aircraft:{sdkVersion}'
-  compileOnly 'com.dji:dji-sdk-v5-aircraft-provided:{sdkVersion}'
-  ```
-  
-- If the MSDK have to use network(required by default), please use:
-  ```groovy
-  runtimeOnly 'com.dji:dji-sdk-v5-networkImp:{sdkVersion}'
-  ```
+Actualmente, las credenciales del SDK (API Keys, Tokens) y la configuración de la Keystore permanecen en archivos de configuración (`gradle.properties`) por motivos de agilidad en el desarrollo. 
 
+> [!NOTE]
+> La migración hacia una gestión segura de secretos (ej. `secrets.properties` ignorado por Git o variables de entorno) es una tarea planificada en el roadmap de endurecimiento de seguridad previo a una publicación en repositorios públicos masivos.
 
+## Créditos
 
-## Support
+Este proyecto se desarrolla de forma colaborativa integrando las capacidades del MSDK V5 de DJI con lógica de procesamiento de imagen personalizada.
 
-You can get support from DJI with the following method:
+## Licencia
 
-- Post questions in DJI Developer Forums: [**DEVELOPER SUPPORT**](https://djisdksupport.zendesk.com/hc/en-us/community/topics)
+Actualmente no existe una licencia definida para este proyecto derivado. Se recomienda consultar los términos del DJI SDK antes de cualquier uso comercial.

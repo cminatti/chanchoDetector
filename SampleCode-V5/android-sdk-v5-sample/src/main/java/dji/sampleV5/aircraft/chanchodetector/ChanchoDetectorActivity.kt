@@ -15,7 +15,7 @@ import dji.sdk.keyvalue.value.common.ComponentIndexType
 class ChanchoDetectorActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityChanchoDetectorBinding
-    private val motionDetector = MotionDetector()
+    private var frameProcessor: FrameProcessor = MotionDetector()
     private var vibrator: Vibrator? = null
     private var lastVibrationTime: Long = 0
     private val VIBRATION_COOLDOWN = 3000L // 3 segundos entre vibraciones
@@ -73,8 +73,8 @@ class ChanchoDetectorActivity : AppCompatActivity() {
     }
 
     private val frameListener = ICameraStreamManager.CameraFrameListener { frameData, offset, length, width, height, format ->
-        // Análisis de movimiento (Corre en un hilo de fondo de DJI)
-        val regions = motionDetector.processFrame(frameData, width, height)
+        // Análisis de frame (Corre en un hilo de fondo de DJI)
+        val regions = frameProcessor.process(frameData, width, height)
         
         // Convertimos regiones a tracks para el overlay
         val tracks = regions.mapIndexed { index, rectF ->
@@ -84,7 +84,7 @@ class ChanchoDetectorActivity : AppCompatActivity() {
         // UI Updates
         runOnUiThread {
             binding.detectionOverlay.setTracks(tracks)
-            binding.fps_text.text = "Movimiento detectado: ${regions.size} regiones"
+            binding.fpsText.text = "Movimiento detectado: ${regions.size} regiones"
             
             if (regions.isNotEmpty()) {
                 triggerVibration()
@@ -114,6 +114,7 @@ class ChanchoDetectorActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        frameProcessor.stop()
         stopFrameAnalysis()
     }
 }

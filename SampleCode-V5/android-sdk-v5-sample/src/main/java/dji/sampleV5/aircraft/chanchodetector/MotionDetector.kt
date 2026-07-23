@@ -9,16 +9,16 @@ class MotionDetector(
     private val height: Int = 90,
     private val threshold: Int = 25,
     private val minAreaPercent: Float = 0.005f
-) {
+) : FrameProcessor {
     private var prevFrame: ByteArray? = null
     private val motionRegions = AtomicReference<List<RectF>>(emptyList())
 
     /**
      * Procesa un frame YUV (solo usamos el canal Y/Luma para movimiento)
      */
-    fun processFrame(yData: ByteArray, frameWidth: Int, frameHeight: Int): List<RectF> {
+    override fun process(frameData: ByteArray, width: Int, height: Int): List<RectF> {
         // 1. Downsample agresivo
-        val downsampled = downsample(yData, frameWidth, frameHeight, width, height)
+        val downsampled = downsample(frameData, width, height, this.width, this.height)
 
         if (prevFrame == null) {
             prevFrame = downsampled

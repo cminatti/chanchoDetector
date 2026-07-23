@@ -1,0 +1,5 @@
+- [x] Corregir sintaxis de repositorios en `build.gradle`
+- [x] Eliminar repositorios obsoletos (`jcenter`, `bintray`)
+- [x] Agregar `package` al `AndroidManifest.xml`
+- [x] Simplificar permisos en el Manifest para evitar errores de validación
+- [ ] Solicitar sincronización de Gradle al usuario

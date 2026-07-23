@@ -6,19 +6,17 @@
     android:background="@android:color/black">
 
     <!-- El video de DJI se renderiza aquí -->
-    <androidx.cardview.CardView
+    <FrameLayout
         android:id="@+id/video_container"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        app:cardCornerRadius="0dp"
-        app:cardElevation="0dp">
+        android:layout_height="match_parent">
         
         <SurfaceView
             android:id="@+id/video_surface"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
             
-    </androidx.cardview.CardView>
+    </FrameLayout>
 
     <!-- Overlay para dibujar los cuadros de detección -->
     <dji.sampleV5.aircraft.chanchodetector.DetectionOverlayView
@@ -68,7 +66,7 @@
         android:layout_height="48dp"
         android:layout_margin="16dp"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:src="@drawable/uxsdk_ic_back"
+        android:src="@drawable/uxsdk_ic_back_arrow"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:tint="@android:color/white" />

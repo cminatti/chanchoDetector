@@ -1,0 +1,10 @@
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+include ':sample'
+project(':sample').projectDir = new File(rootProject.projectDir, 'SampleCode-V5/android-sdk-v5-sample')
+
+include ':uxsdk'
+project(':uxsdk').projectDir = new File(rootProject.projectDir, 'SampleCode-V5/android-sdk-v5-uxsdk')
+
+rootProject.name = "chanchoDetector"
