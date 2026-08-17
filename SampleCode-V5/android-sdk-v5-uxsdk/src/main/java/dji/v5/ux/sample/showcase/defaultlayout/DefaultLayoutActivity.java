@@ -109,6 +109,8 @@ public class DefaultLayoutActivity extends AppCompatActivity {
     protected FocalZoomWidget focalZoomWidget;
     protected SettingWidget settingWidget;
     protected MapWidget mapWidget;
+    protected View btnToggleMap;
+    private boolean useGoogleMaps = false;
     protected TopBarPanelWidget topBarPanel;
     protected ConstraintLayout fpvParentView;
     private DrawerLayout mDrawerLayout;
@@ -168,6 +170,7 @@ public class DefaultLayoutActivity extends AppCompatActivity {
         gimbalAdjustDone = findViewById(R.id.fpv_gimbal_ok_btn);
         gimbalFineTuneWidget = findViewById(R.id.setting_menu_gimbal_fine_tune);
         mapWidget = findViewById(R.id.widget_map);
+        btnToggleMap = findViewById(R.id.btn_toggle_map);
 
         initClickListener();
         MediaDataCenter.getInstance().getCameraStreamManager().addAvailableCameraUpdatedListener(availableCameraUpdatedListener);
@@ -177,13 +180,29 @@ public class DefaultLayoutActivity extends AppCompatActivity {
         secondaryFPVWidget.setSurfaceViewZOrderOnTop(true);
         secondaryFPVWidget.setSurfaceViewZOrderMediaOverlay(true);
 
+        useGoogleMaps = getPreferences(MODE_PRIVATE).getBoolean("use_google_maps", false);
+        if (useGoogleMaps) {
+            mapWidget.initGoogleMap(map -> {
+                DJIUiSettings uiSetting = map.getUiSettings();
+                if (uiSetting != null) {
+                    uiSetting.setZoomControlsEnabled(false);
+                }
+            });
+        } else {
+            mapWidget.initMapLibreMap(getApplicationContext(), map -> {
+                DJIUiSettings uiSetting = map.getUiSettings();
+                if (uiSetting != null) {
+                    uiSetting.setZoomControlsEnabled(false);
+                }
+            });
+        }
 
-        mapWidget.initMapLibreMap(getApplicationContext(), map -> {
-            DJIUiSettings uiSetting = map.getUiSettings();
-            if (uiSetting != null) {
-                uiSetting.setZoomControlsEnabled(false);//hide zoom widget
-            }
+        btnToggleMap.setOnClickListener(v -> {
+            boolean newValue = !useGoogleMaps;
+            getPreferences(MODE_PRIVATE).edit().putBoolean("use_google_maps", newValue).apply();
+            recreate();
         });
+
         mapWidget.onCreate(savedInstanceState);
         getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
 
