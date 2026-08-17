@@ -127,7 +127,13 @@ public class LedMenuFragment extends MenuFragment
                 if (productType == ProductType.M30_SERIES || productType == ProductType.DJI_MAVIC_3_ENTERPRISE_SERIES) {
                     m430TopAuxiliaryTabSelectCell.setVisibility(View.GONE);
                     m430BeaconLedCell.setVisibility(View.VISIBLE);
-                }else{
+                } else if (productType == ProductType.DJI_MINI_4_PRO) {
+                    m430TopAuxiliaryTabSelectCell.setVisibility(View.GONE);
+                    m430BeaconLedCell.setVisibility(View.GONE);
+                    mLEDArmCell.setVisibility(View.VISIBLE);
+                    mLEDStatusCell.setVisibility(View.VISIBLE);
+                    updateViewsByState();
+                } else {
                     updateTopAuxiliaryTabSelectCell();
 
                 }
@@ -178,6 +184,8 @@ public class LedMenuFragment extends MenuFragment
         mLEDStatusCell.setVisibility(View.GONE);
         m430LEDsHideModeCell.setVisibility(View.GONE);
         m430LEDsHideModeCell.setOnCheckedChangedListener(this);
+        mLEDArmCell.setOnCheckedChangedListener(this);
+        mLEDStatusCell.setOnCheckedChangedListener(this);
         m430BeaconLedCell.setOnCheckedChangedListener(this);
         m430TopAuxiliaryTabSelectCell.setOnTabChangeListener(this);
         m430BottomAuxiliaryTabSelectCell.setOnTabChangeListener(this);
@@ -200,18 +208,18 @@ public class LedMenuFragment extends MenuFragment
             } else {
                 openLEDsHide(false);
             }
-        } else if (id == R.id.setting_menu_common_beacon_led || id == R.id.setting_menu_common_led_beacon) {//非430夜航灯
+        } else if (id == R.id.setting_menu_common_beacon_led || id == R.id.setting_menu_common_led_beacon) {//夜航灯
 
             LEDsSettings leDsSettings = createLedsBuilder();
             leDsSettings.setNavigationLEDsOn(isChecked);
             KeyManager.getInstance().setValue(KeyTools.createKey(FlightControllerKey.KeyLEDsSettings), leDsSettings, new CommonCallbacks.CompletionCallback() {
                 @Override
                 public void onSuccess() {
-                    //add tips
+                    LogUtils.d(TAG, "Navigation Beacon set to " + isChecked);
                 }
                 @Override
                 public void onFailure(@NonNull IDJIError error) {
-                    //add log
+                    ViewUtil.showToast(getContext(), R.string.uxsdk_app_operator_fail, Toast.LENGTH_SHORT);
                 }
             });
         } else if (id == R.id.setting_menu_common_led_arm) {//机臂灯
@@ -219,18 +227,16 @@ public class LedMenuFragment extends MenuFragment
             LEDsSettings leDsSettings = createLedsBuilder();
             leDsSettings.setFrontLEDsOn(isChecked);
             leDsSettings.setRearLEDsOn(isChecked);
-            leDsSettings.setStatusIndicatorLEDsOn(isChecked);
+            // On some drones setting arm LEDs might affect status LEDs, but we try to keep it separate if supported
             KeyManager.getInstance().setValue(KeyTools.createKey(FlightControllerKey.KeyLEDsSettings), leDsSettings, new CommonCallbacks.CompletionCallback() {
                 @Override
                 public void onSuccess() {
-                    if (!isChecked) {
-                        ViewUtil.showToast(getContext(), R.string.uxsdk_app_operator_fail, Toast.LENGTH_SHORT);
-                    }
+                    LogUtils.d(TAG, "Arm LEDs set to " + isChecked);
                 }
 
                 @Override
                 public void onFailure(@NonNull IDJIError error) {
-                    //add log
+                    ViewUtil.showToast(getContext(), R.string.uxsdk_app_operator_fail, Toast.LENGTH_SHORT);
                 }
             });
         } else if (id == R.id.setting_menu_common_led_status) {//状态灯
@@ -239,25 +245,28 @@ public class LedMenuFragment extends MenuFragment
             KeyManager.getInstance().setValue(KeyTools.createKey(FlightControllerKey.KeyLEDsSettings), leDsSettings, new CommonCallbacks.CompletionCallback() {
                 @Override
                 public void onSuccess() {
-                    if (!isChecked) {
-                        ViewUtil.showToast(getContext(), R.string.uxsdk_app_operator_fail, Toast.LENGTH_SHORT);
-                    }
+                    LogUtils.d(TAG, "Status LEDs set to " + isChecked);
                 }
 
                 @Override
                 public void onFailure(@NonNull IDJIError error) {
-                    //add log
+                    ViewUtil.showToast(getContext(), R.string.uxsdk_app_operator_fail, Toast.LENGTH_SHORT);
                 }
             });
         }
     }
 
     private LEDsSettings createLedsBuilder() {
-        //先获取现阶段的值
-        LEDsSettings defaultSettings = new LEDsSettings();
-        LEDsSettings leDsSettings = KeyManager.getInstance().getValue(KeyTools.createKey(FlightControllerKey.KeyLEDsSettings) ,defaultSettings);
-        return new LEDsSettings(leDsSettings.getFrontLEDsOn(),leDsSettings.getStatusIndicatorLEDsOn(),leDsSettings.getRearLEDsOn(),leDsSettings.getNavigationLEDsOn());
-
+        LEDsSettings currentSettings = KeyManager.getInstance().getValue(KeyTools.createKey(FlightControllerKey.KeyLEDsSettings));
+        if (currentSettings == null) {
+            return new LEDsSettings(true, true, true, true);
+        }
+        return new LEDsSettings(
+                currentSettings.getFrontLEDsOn() != null ? currentSettings.getFrontLEDsOn() : true,
+                currentSettings.getStatusIndicatorLEDsOn() != null ? currentSettings.getStatusIndicatorLEDsOn() : true,
+                currentSettings.getRearLEDsOn() != null ? currentSettings.getRearLEDsOn() : true,
+                currentSettings.getNavigationLEDsOn() != null ? currentSettings.getNavigationLEDsOn() : true
+        );
     }
 
     private void openLEDsHide(boolean isHide) {
