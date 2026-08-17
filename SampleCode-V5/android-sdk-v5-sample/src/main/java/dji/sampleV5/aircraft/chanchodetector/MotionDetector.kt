@@ -7,8 +7,8 @@ import kotlin.math.abs
 class MotionDetector(
     private val width: Int = 160,
     private val height: Int = 90,
-    private val threshold: Int = 25,
-    private val minAreaPercent: Float = 0.005f
+    private val threshold: Int = 20,
+    private val minAreaPercent: Float = 0.05f
 ) : FrameProcessor {
     private var prevFrame: ByteArray? = null
     private val motionRegions = AtomicReference<List<RectF>>(emptyList())
@@ -16,9 +16,9 @@ class MotionDetector(
     /**
      * Procesa un frame YUV (solo usamos el canal Y/Luma para movimiento)
      */
-    override fun process(frameData: ByteArray, width: Int, height: Int): List<RectF> {
+    override fun process(frameData: ByteArray, offset: Int, width: Int, height: Int): List<RectF> {
         // 1. Downsample agresivo
-        val downsampled = downsample(frameData, width, height, this.width, this.height)
+        val downsampled = downsample(frameData, offset, width, height, this.width, this.height)
 
         if (prevFrame == null) {
             prevFrame = downsampled
@@ -26,9 +26,9 @@ class MotionDetector(
         }
 
         // 2. Diferencia de frames
-        val diff = ByteArray(width * height)
+        val diff = ByteArray(this.width * this.height)
         var motionPixels = 0
-        for (i in 0 until (width * height)) {
+        for (i in 0 until (this.width * this.height)) {
             val d = abs((downsampled[i].toInt() and 0xFF) - (prevFrame!![i].toInt() and 0xFF))
             if (d > threshold) {
                 diff[i] = 255.toByte()
@@ -48,7 +48,7 @@ class MotionDetector(
         return regions
     }
 
-    private fun downsample(src: ByteArray, srcW: Int, srcH: Int, dstW: Int, dstH: Int): ByteArray {
+    private fun downsample(src: ByteArray, offset: Int, srcW: Int, srcH: Int, dstW: Int, dstH: Int): ByteArray {
         val out = ByteArray(dstW * dstH)
         val xRatio = srcW.toFloat() / dstW
         val yRatio = srcH.toFloat() / dstH
@@ -57,7 +57,7 @@ class MotionDetector(
             for (x in 0 until dstW) {
                 val srcX = (x * xRatio).toInt()
                 val srcY = (y * yRatio).toInt()
-                out[y * dstW + x] = src[srcY * srcW + srcX]
+                out[y * dstW + x] = src[offset + (srcY * srcW + srcX)]
             }
         }
         return out
@@ -80,8 +80,8 @@ class MotionDetector(
                     }
                 }
 
-                // Si más del 10% de la celda se mueve, es candidata
-                if (activeCount > (cellW * cellH * 0.1)) {
+                // Si más de la proporción mínima de la celda se mueve, es candidata
+                if (activeCount > (cellW * cellH * minAreaPercent)) {
                     regions.add(RectF(
                         gx.toFloat() / gridCols,
                         gy.toFloat() / gridRows,

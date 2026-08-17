@@ -9,11 +9,12 @@ interface FrameProcessor {
     /**
      * Procesa un frame de video y devuelve una lista de regiones detectadas
      * @param frameData Datos del frame (usualmente YUV)
+     * @param offset Inicio de los datos en el array
      * @param width Ancho del frame
      * @param height Alto del frame
      * @return Lista de rectángulos con las detecciones
      */
-    fun process(frameData: ByteArray, width: Int, height: Int): List<RectF>
+    fun process(frameData: ByteArray, offset: Int, width: Int, height: Int): List<RectF>
     
     /**
      * Libera recursos si es necesario

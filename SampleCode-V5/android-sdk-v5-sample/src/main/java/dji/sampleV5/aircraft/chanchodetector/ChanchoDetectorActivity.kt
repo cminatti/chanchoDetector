@@ -74,7 +74,12 @@ class ChanchoDetectorActivity : AppCompatActivity() {
 
     private val frameListener = ICameraStreamManager.CameraFrameListener { frameData, offset, length, width, height, format ->
         // Análisis de frame (Corre en un hilo de fondo de DJI)
-        val regions = frameProcessor.process(frameData, width, height)
+        val regions = frameProcessor.process(frameData, offset, width, height)
+        
+        // Log para depuración
+        if (regions.isNotEmpty()) {
+            android.util.Log.d("ChanchoDetector", "Movimiento detectado en ${regions.size} regiones")
+        }
         
         // Convertimos regiones a tracks para el overlay
         val tracks = regions.mapIndexed { index, rectF ->
