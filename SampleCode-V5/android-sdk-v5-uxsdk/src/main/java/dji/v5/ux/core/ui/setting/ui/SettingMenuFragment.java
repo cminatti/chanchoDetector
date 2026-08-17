@@ -16,7 +16,7 @@ import androidx.fragment.app.FragmentManager;
 import dji.v5.ux.R;
 
 /**
- * Description : 所有设置界面创建的入口
+ * Description : Entry point for creating all of the settings screens
  *
  * @author: Byte.Cai
  * date : 2022/11/18
@@ -37,8 +37,8 @@ public class SettingMenuFragment extends Fragment implements FragmentManager.OnB
     private FragmentManager fragmentManager;
     private Runnable mLazyInflateTask;
 
-    private SettingMenuFragment() {
-        // Required empty private constructor
+    public SettingMenuFragment() {
+        // Required empty public constructor for Fragment framework
     }
 
     public static SettingMenuFragment newInstance(String tag) {
@@ -47,10 +47,7 @@ public class SettingMenuFragment extends Fragment implements FragmentManager.OnB
 
     public static SettingMenuFragment newInstance(String tag, boolean needLazyInitView) {
         SettingMenuFragment fragment = new SettingMenuFragment();
-        Bundle args = fragment.getArguments();
-        if (args == null) {
-            args = new Bundle();
-        }
+        Bundle args = new Bundle();
         args.putString(ARG_PARAM, tag);
         args.putBoolean(NEED_LAZY_INFLATE, needLazyInitView);
         fragment.setArguments(args);
@@ -63,14 +60,16 @@ public class SettingMenuFragment extends Fragment implements FragmentManager.OnB
         super.onCreate(savedInstanceState);
         fragmentManager = getChildFragmentManager();
         fragmentManager.addOnBackStackChangedListener(this);
-        mFragmentTag = getArguments().getString(ARG_PARAM, "");
+        if (getArguments() != null) {
+            mFragmentTag = getArguments().getString(ARG_PARAM, "");
+        }
 
         mLazyInflateTask = this::inflateFunctionFragment;
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        mFragmentRoot = inflater.inflate(R.layout.uxsdk_setting_menu_fragment_layout, null);
+        mFragmentRoot = inflater.inflate(R.layout.uxsdk_setting_menu_fragment_layout, container, false);
         return mFragmentRoot;
     }
 
@@ -82,11 +81,11 @@ public class SettingMenuFragment extends Fragment implements FragmentManager.OnB
         mProgressBar = view.findViewById(R.id.setting_menu_progress_bar);
 
         if (!TextUtils.isEmpty(mFragmentTag)) {
-            if (getArguments() == null) {
-                return;
-            }
             mProgressBar.setVisibility(View.VISIBLE);
-            boolean needLazyInflate = getArguments().getBoolean(NEED_LAZY_INFLATE, true);
+            boolean needLazyInflate = true;
+            if (getArguments() != null) {
+                needLazyInflate = getArguments().getBoolean(NEED_LAZY_INFLATE, true);
+            }
             if (needLazyInflate) {
                 mFragmentRoot.post(mLazyInflateTask);
             } else {
@@ -145,22 +144,21 @@ public class SettingMenuFragment extends Fragment implements FragmentManager.OnB
 
 
     private MenuFragment getLastMenuFragment() {
-        if (fragmentManager.getFragments().size() > 0) {
+        if (fragmentManager != null && fragmentManager.getFragments().size() > 0) {
             Fragment fragment = fragmentManager.getFragments().get(fragmentManager.getFragments().size() - 1);
             if (fragment instanceof MenuFragment) {
                 return (MenuFragment) fragment;
-            } else {
-                return null;
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
 
     @Override
     public void onDestroyView() {
-        mProgressBar.setVisibility(View.GONE);
+        if (mProgressBar != null) {
+            mProgressBar.setVisibility(View.GONE);
+        }
         mProgressBar = null;
         mBackBtn = null;
         mTitleView = null;
@@ -174,7 +172,6 @@ public class SettingMenuFragment extends Fragment implements FragmentManager.OnB
     @Override
     public void onDestroy() {
         mLazyInflateTask = null;
-
         super.onDestroy();
     }
 

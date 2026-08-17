@@ -28,7 +28,6 @@ import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,12 +40,16 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
+import dji.sdk.keyvalue.key.FlightControllerKey;
+import dji.sdk.keyvalue.key.KeyTools;
 import dji.sdk.keyvalue.value.common.CameraLensType;
 import dji.sdk.keyvalue.value.common.ComponentIndexType;
+import dji.v5.manager.KeyManager;
 import dji.v5.manager.datacenter.MediaDataCenter;
 import dji.v5.manager.interfaces.ICameraStreamManager;
 import dji.v5.network.DJINetworkManager;
 import dji.v5.network.IDJINetworkStatusListener;
+import dji.v5.utils.common.DisplayUtil;
 import dji.v5.utils.common.JsonUtil;
 import dji.v5.utils.common.LogPath;
 import dji.v5.utils.common.LogUtils;
@@ -77,6 +80,7 @@ import dji.v5.ux.core.widget.simulator.SimulatorIndicatorWidget;
 import dji.v5.ux.core.widget.systemstatus.SystemStatusWidget;
 import dji.v5.ux.gimbal.GimbalFineTuneWidget;
 import dji.v5.ux.map.MapWidget;
+import dji.v5.ux.mapkit.core.maps.DJIMap;
 import dji.v5.ux.mapkit.core.maps.DJIUiSettings;
 import dji.v5.ux.training.simulatorcontrol.SimulatorControlWidget;
 import dji.v5.ux.visualcamera.CameraNDVIPanelWidget;
@@ -91,6 +95,11 @@ import io.reactivex.rxjava3.disposables.CompositeDisposable;
 public class DefaultLayoutActivity extends AppCompatActivity {
 
     //region Fields
+    private static final float MINI_WINDOW_WIDTH_DP = 150f;
+    private static final float MINI_WINDOW_HEIGHT_DP = 100f;
+    private static final float MINI_WINDOW_MARGIN_DP = 12f;
+    private static final float MINI_WINDOW_ELEVATION_DP = 20f;
+
     private final String TAG = LogUtils.getTag(this);
 
     protected FPVWidget primaryFpvWidget;
@@ -111,8 +120,9 @@ public class DefaultLayoutActivity extends AppCompatActivity {
     protected SettingWidget settingWidget;
     protected MapWidget mapWidget;
     protected View btnToggleMap;
-    private boolean useGoogleMaps = false;
+    protected View clickShield;
     private boolean isMapFullScreen = false;
+    private DJIMap.MapType currentMapType = DJIMap.MapType.NORMAL;
     protected TopBarPanelWidget topBarPanel;
     protected ConstraintLayout fpvParentView;
     private DrawerLayout mDrawerLayout;
@@ -173,48 +183,142 @@ public class DefaultLayoutActivity extends AppCompatActivity {
         gimbalFineTuneWidget = findViewById(R.id.setting_menu_gimbal_fine_tune);
         mapWidget = findViewById(R.id.widget_map);
         btnToggleMap = findViewById(R.id.btn_toggle_map);
+        clickShield = findViewById(R.id.click_shield);
 
         initClickListener();
         MediaDataCenter.getInstance().getCameraStreamManager().addAvailableCameraUpdatedListener(availableCameraUpdatedListener);
         primaryFpvWidget.setOnFPVStreamSourceListener((devicePosition, lensType) -> cameraSourceProcessor.onNext(new CameraSource(devicePosition, lensType)));
 
-        //小surfaceView放置在顶部，避免被大的遮挡
+        //Keep the small surfaceView on top so the large one does not cover it
         secondaryFPVWidget.setSurfaceViewZOrderOnTop(true);
         secondaryFPVWidget.setSurfaceViewZOrderMediaOverlay(true);
 
-        useGoogleMaps = getPreferences(MODE_PRIVATE).getBoolean("use_google_maps", false);
-        LogUtils.d(TAG, "Map mode: " + (useGoogleMaps ? "Google" : "MapLibre"));
-        Toast.makeText(this, "Map mode: " + (useGoogleMaps ? "Google" : "MapLibre"), Toast.LENGTH_LONG).show();
+        //The available-camera listener only fires when the list changes, so an Activity created while
+        //the list is already settled never hears about it and the FPVWidget is left with
+        //ComponentIndexType.UNKNOWN => black screen. Bind the main camera up front; if the listener
+        //later reports a different list, updateFPVWidgetSource corrects it.
+        primaryFpvWidget.updateVideoSource(ComponentIndexType.LEFT_OR_MAIN);
 
-        if (useGoogleMaps) {
-            mapWidget.initGoogleMap(map -> {
-                DJIUiSettings uiSetting = map.getUiSettings();
-                if (uiSetting != null) {
-                    uiSetting.setZoomControlsEnabled(false);
-                }
-            });
-        } else {
-            mapWidget.initMapLibreMap(getApplicationContext(), map -> {
-                DJIUiSettings uiSetting = map.getUiSettings();
-                if (uiSetting != null) {
-                    uiSetting.setZoomControlsEnabled(false);
-                }
-            });
-        }
+        //The surface is registered with the stream manager once, when the SurfaceView is created. If
+        //the aircraft is not linked at that moment (the usual case: the screen is opened before the
+        //drone is powered on) that registration points at a camera that does not exist yet, and
+        //nothing re-registers it on connect => the video stays black. Re-apply the source on every
+        //connect so the surface is handed to the stream manager again.
+        KeyManager.getInstance().listen(
+                KeyTools.createKey(FlightControllerKey.KeyConnection), this,
+                (oldValue, newValue) -> {
+                    if (Boolean.TRUE.equals(newValue)) {
+                        runOnUiThread(this::rebindVideoSources);
+                    }
+                });
 
-        btnToggleMap.setOnClickListener(v -> {
-            boolean newValue = !useGoogleMaps;
-            getPreferences(MODE_PRIVATE).edit().putBoolean("use_google_maps", newValue).apply();
-            recreate();
-        });
+        initMap(savedInstanceState);
 
-        btnToggleMap.bringToFront();
-        mapWidget.onCreate(savedInstanceState);
+        btnToggleMap.setOnClickListener(v -> toggleMapType());
+
+        // Click shield handles the swap logic for both mini-windows
+        clickShield.setOnClickListener(v -> swapMapAndFpv());
+
         getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
 
-        //实现RTK监测网络，并自动重连机制
+        //Monitor the network for RTK and reconnect automatically
         DJINetworkManager.getInstance().addNetworkStatusListener(networkStatusListener);
+    }
 
+    /**
+     * Re-applies the current video sources so each FPVWidget hands its surface to the stream manager
+     * again. {@link FPVWidget#updateVideoSource} always calls through to putCameraStreamSurface, even
+     * when the camera index has not changed, which is exactly what is needed after a reconnect.
+     */
+    private void rebindVideoSources() {
+        ComponentIndexType primarySource = primaryFpvWidget.getWidgetModel().getCameraIndex();
+        primaryFpvWidget.updateVideoSource(primarySource == ComponentIndexType.UNKNOWN
+                ? ComponentIndexType.LEFT_OR_MAIN
+                : primarySource);
+
+        ComponentIndexType secondarySource = secondaryFPVWidget.getWidgetModel().getCameraIndex();
+        if (secondarySource != ComponentIndexType.UNKNOWN) {
+            secondaryFPVWidget.updateVideoSource(secondarySource);
+        }
+    }
+
+    private void initMap(Bundle savedInstanceState) {
+        mapWidget.initGoogleMap(map -> {
+            DJIUiSettings uiSetting = map.getUiSettings();
+            if (uiSetting != null) {
+                uiSetting.setZoomControlsEnabled(false);
+            }
+        });
+        mapWidget.onCreate(savedInstanceState);
+    }
+
+    private void toggleMapType() {
+        DJIMap map = mapWidget.getMap();
+        if (map == null) {
+            return;
+        }
+        currentMapType = (currentMapType == DJIMap.MapType.NORMAL)
+                ? DJIMap.MapType.SATELLITE
+                : DJIMap.MapType.NORMAL;
+        map.setMapType(currentMapType);
+    }
+
+    private void swapMapAndFpv() {
+        isMapFullScreen = !isMapFullScreen;
+
+        ConstraintLayout.LayoutParams fpvParams = (ConstraintLayout.LayoutParams) fpvParentView.getLayoutParams();
+        ConstraintLayout.LayoutParams mapParams = (ConstraintLayout.LayoutParams) mapWidget.getLayoutParams();
+
+        int smallWidth = DisplayUtil.dip2px(this, MINI_WINDOW_WIDTH_DP);
+        int smallHeight = DisplayUtil.dip2px(this, MINI_WINDOW_HEIGHT_DP);
+        int margin = DisplayUtil.dip2px(this, MINI_WINDOW_MARGIN_DP);
+
+        if (isMapFullScreen) {
+            applyFullScreen(mapParams);
+            applyMiniWindow(fpvParams, smallWidth, smallHeight, margin);
+        } else {
+            applyFullScreen(fpvParams);
+            applyMiniWindow(mapParams, smallWidth, smallHeight, margin);
+        }
+
+        fpvParentView.setLayoutParams(fpvParams);
+        mapWidget.setLayoutParams(mapParams);
+
+        //A SurfaceView's compositing order does not follow the child order, so bringToFront() has no
+        //effect here: the surface's own Z-order flags are what matter. Raise the FPV above the map
+        //surface while it is the mini window, and lower it again when it goes full screen (otherwise
+        //it would cover every widget drawn on top of it).
+        primaryFpvWidget.setSurfaceViewZOrderMediaOverlay(isMapFullScreen);
+        primaryFpvWidget.setSurfaceViewZOrderOnTop(isMapFullScreen);
+
+        //translationZ orders the drawing of the regular views (borders, buttons, shield) without
+        //reordering the ConstraintLayout's children.
+        float miniZ = DisplayUtil.dip2px(this, MINI_WINDOW_ELEVATION_DP);
+        fpvParentView.setTranslationZ(isMapFullScreen ? miniZ : 0f);
+        mapWidget.setTranslationZ(isMapFullScreen ? 0f : miniZ);
+    }
+
+    private void applyFullScreen(ConstraintLayout.LayoutParams params) {
+        //0 = MATCH_CONSTRAINT. MATCH_PARENT would ignore the constraints and cover the top bar.
+        params.width = 0;
+        params.height = 0;
+        params.topToBottom = R.id.panel_top_bar;
+        params.topToTop = ConstraintLayout.LayoutParams.UNSET;
+        params.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+        params.startToStart = ConstraintLayout.LayoutParams.PARENT_ID;
+        params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+        params.setMargins(0, 0, 0, 0);
+    }
+
+    private void applyMiniWindow(ConstraintLayout.LayoutParams params, int width, int height, int margin) {
+        params.width = width;
+        params.height = height;
+        params.topToBottom = ConstraintLayout.LayoutParams.UNSET;
+        params.topToTop = ConstraintLayout.LayoutParams.UNSET;
+        params.startToStart = ConstraintLayout.LayoutParams.UNSET;
+        params.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+        params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+        params.setMargins(0, 0, margin, margin);
     }
 
     private void isGimableAdjustClicked(BroadcastValues broadcastValues) {
@@ -253,71 +357,6 @@ public class DefaultLayoutActivity extends AppCompatActivity {
         });
     }
 
-    private void initMap(Bundle savedInstanceState) {
-        if (useGoogleMaps) {
-            mapWidget.initGoogleMap(map -> {
-                DJIUiSettings uiSetting = map.getUiSettings();
-                if (uiSetting != null) {
-                    uiSetting.setZoomControlsEnabled(false);
-                }
-            });
-        } else {
-            mapWidget.initMapLibreMap(getApplicationContext(), map -> {
-                DJIUiSettings uiSetting = map.getUiSettings();
-                if (uiSetting != null) {
-                    uiSetting.setZoomControlsEnabled(false);
-                }
-            });
-        }
-        mapWidget.onCreate(savedInstanceState);
-    }
-
-    private void swapMapAndFpv() {
-        isMapFullScreen = !isMapFullScreen;
-        ConstraintLayout.LayoutParams fpvParams = (ConstraintLayout.LayoutParams) fpvParentView.getLayoutParams();
-        ConstraintLayout.LayoutParams mapParams = (ConstraintLayout.LayoutParams) mapWidget.getLayoutParams();
-
-        if (isMapFullScreen) {
-            // Map a pantalla completa
-            mapParams.width = ConstraintLayout.LayoutParams.MATCH_PARENT;
-            mapParams.height = ConstraintLayout.LayoutParams.MATCH_PARENT;
-            mapParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
-            mapParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
-            mapParams.setMargins(0, 0, 0, 0);
-
-            // FPV a ventana pequeña
-            fpvParams.width = ViewUtil.dip2px(this, 150);
-            fpvParams.height = ViewUtil.dip2px(this, 100);
-            fpvParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
-            fpvParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
-            fpvParams.setMargins(0, 0, ViewUtil.dip2px(this, 12), ViewUtil.dip2px(this, 12));
-            
-            fpvParentView.bringToFront();
-        } else {
-            // FPV a pantalla completa
-            fpvParams.width = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT;
-            fpvParams.height = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT;
-            fpvParams.topToBottom = R.id.panel_top_bar;
-            fpvParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
-            fpvParams.startToStart = ConstraintLayout.LayoutParams.PARENT_ID;
-            fpvParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
-            fpvParams.setMargins(0, 0, 0, 0);
-
-            // Map a ventana pequeña
-            mapParams.width = ViewUtil.dip2px(this, 150);
-            mapParams.height = ViewUtil.dip2px(this, 100);
-            mapParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
-            mapParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
-            mapParams.setMargins(0, 0, ViewUtil.dip2px(this, 12), ViewUtil.dip2px(this, 12));
-            
-            mapWidget.bringToFront();
-            btnToggleMap.bringToFront();
-        }
-
-        fpvParentView.setLayoutParams(fpvParams);
-        mapWidget.setLayoutParams(mapParams);
-    }
-
     private void toggleRightDrawer() {
         mDrawerLayout.openDrawer(GravityCompat.END);
     }
@@ -325,11 +364,23 @@ public class DefaultLayoutActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
         mapWidget.onDestroy();
+        KeyManager.getInstance().cancelListen(this);
         MediaDataCenter.getInstance().getCameraStreamManager().removeAvailableCameraUpdatedListener(availableCameraUpdatedListener);
         DJINetworkManager.getInstance().removeNetworkStatusListener(networkStatusListener);
+        super.onDestroy();
+    }
 
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        mapWidget.onSaveInstanceState(outState);
+    }
+
+    @Override
+    public void onLowMemory() {
+        super.onLowMemory();
+        mapWidget.onLowMemory();
     }
 
     @Override
@@ -398,20 +449,20 @@ public class DefaultLayoutActivity extends AppCompatActivity {
 
         ArrayList<ComponentIndexType> cameraList = new ArrayList<>(availableCameraList);
 
-        //没有数据
+        //No streams available
         if (cameraList.isEmpty()) {
             secondaryFPVWidget.setVisibility(View.GONE);
             return;
         }
 
-        //仅一路数据
+        //Only one stream available
         if (cameraList.size() == 1) {
             primaryFpvWidget.updateVideoSource(availableCameraList.get(0));
             secondaryFPVWidget.setVisibility(View.GONE);
             return;
         }
 
-        //大于两路数据
+        //Two or more streams available
         ComponentIndexType primarySource = getSuitableSource(cameraList, ComponentIndexType.LEFT_OR_MAIN);
         primaryFpvWidget.updateVideoSource(primarySource);
         cameraList.remove(primarySource);
@@ -452,7 +503,7 @@ public class DefaultLayoutActivity extends AppCompatActivity {
         lastLensType = lensType;
         updateViewVisibility(devicePosition, lensType);
         updateInteractionEnabled();
-        //如果无需使能或者显示的，也就没有必要切换了。
+        //No need to switch it if it is neither enabled nor visible.
         if (fpvInteractionWidget.isInteractionEnabled()) {
             fpvInteractionWidget.updateCameraSource(devicePosition, lensType);
         }
@@ -486,10 +537,10 @@ public class DefaultLayoutActivity extends AppCompatActivity {
     }
 
     private void updateViewVisibility(ComponentIndexType devicePosition, CameraLensType lensType) {
-        //只在fpv下显示
+        //Only shown for the FPV source
         pfvFlightDisplayWidget.setVisibility(CameraUtil.isFPVTypeView(devicePosition) ? View.VISIBLE : View.INVISIBLE);
 
-        //fpv下不显示
+        //Hidden for the FPV source
         lensControlWidget.setVisibility(CameraUtil.isFPVTypeView(devicePosition) ? View.INVISIBLE : View.VISIBLE);
         ndviCameraPanel.setVisibility(CameraUtil.isFPVTypeView(devicePosition) ? View.INVISIBLE : View.VISIBLE);
         visualCameraPanel.setVisibility(CameraUtil.isFPVTypeView(devicePosition) ? View.INVISIBLE : View.VISIBLE);
@@ -500,7 +551,7 @@ public class DefaultLayoutActivity extends AppCompatActivity {
         focalZoomWidget.setVisibility(CameraUtil.isFPVTypeView(devicePosition) ? View.INVISIBLE : View.VISIBLE);
         horizontalSituationIndicatorWidget.setSimpleModeEnable(CameraUtil.isFPVTypeView(devicePosition));
 
-        //只在部分len下显示
+        //Only shown for some lens types
         ndviCameraPanel.setVisibility(CameraUtil.isSupportForNDVI(lensType) ? View.VISIBLE : View.INVISIBLE);
     }
 
@@ -510,7 +561,7 @@ public class DefaultLayoutActivity extends AppCompatActivity {
     private void swapVideoSource() {
         ComponentIndexType primarySource = primaryFpvWidget.getWidgetModel().getCameraIndex();
         ComponentIndexType secondarySource = secondaryFPVWidget.getWidgetModel().getCameraIndex();
-        //两个source都存在的情况下才进行切换
+        //Only swap when both sources exist
         if (primarySource != ComponentIndexType.UNKNOWN && secondarySource != ComponentIndexType.UNKNOWN) {
             primaryFpvWidget.updateVideoSource(secondarySource);
             secondaryFPVWidget.updateVideoSource(primarySource);

@@ -83,6 +83,19 @@
                 app:uxsdk_sourceCameraNameVisibility="true" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
+        <!-- Catches taps on the mini window (map or FPV, depending on the state) to swap them.
+             It stays in one place because the mini window never moves. -->
+        <View
+            android:id="@+id/click_shield"
+            android:layout_width="@dimen/uxsdk_150_dp"
+            android:layout_height="@dimen/uxsdk_100_dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginBottom="12dp"
+            android:background="@android:color/transparent"
+            android:elevation="30dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
         <dji.v5.ux.core.panel.topbar.TopBarPanelWidget
             android:id="@+id/panel_top_bar"
             android:layout_width="0dp"
@@ -275,16 +288,16 @@
 
         <Button
             android:id="@+id/btn_toggle_map"
-            android:layout_width="100dp"
-            android:layout_height="40dp"
+            android:layout_width="60dp"
+            android:layout_height="30dp"
             android:layout_marginEnd="12dp"
             android:layout_marginBottom="4dp"
-            android:background="#FF0000"
-            android:text="TOGGLE MAP"
+            android:background="#B3000000"
+            android:text="SAT"
             android:textColor="@android:color/white"
-            android:textSize="10sp"
-            android:elevation="10dp"
-            app:layout_constraintBottom_toTopOf="@id/widget_map"
+            android:textSize="8sp"
+            android:elevation="30dp"
+            app:layout_constraintBottom_toTopOf="@id/click_shield"
             app:layout_constraintEnd_toEndOf="parent" />
 
         <dji.v5.ux.core.panel.systemstatus.SystemStatusListPanelWidget

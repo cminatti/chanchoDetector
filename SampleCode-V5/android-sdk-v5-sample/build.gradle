@@ -22,7 +22,6 @@ android {
         
         manifestPlaceholders["API_KEY"] = localProperties.getProperty("AIRCRAFT_API_KEY") ?: project.AIRCRAFT_API_KEY
         manifestPlaceholders["GMAP_API_KEY"] = localProperties.getProperty("GMAP_API_KEY") ?: project.GMAP_API_KEY
-        manifestPlaceholders["MAPLIBRE_TOKEN"] = localProperties.getProperty("MAPLIBRE_TOKEN") ?: project.MAPLIBRE_TOKEN
 
         ndk {
             //noinspection ChromeOsAbiSupport

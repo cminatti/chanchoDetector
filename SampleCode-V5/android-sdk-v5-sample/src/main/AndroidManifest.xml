@@ -39,11 +39,6 @@
             android:name="com.dji.sdk.API_KEY"
             android:value="${API_KEY}"/>
 
-        <!-- Maplibre Token-->
-        <meta-data
-            android:name="com.dji.mapkit.maplibre.apikey"
-            android:value="${MAPLIBRE_TOKEN}" />
-
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileProvider"
