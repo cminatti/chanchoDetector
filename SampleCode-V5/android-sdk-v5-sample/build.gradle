@@ -2,6 +2,13 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-kapt'
 
+// Leer local.properties una sola vez al inicio
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localProperties.load(new FileInputStream(localPropertiesFile))
+}
+
 android {
     namespace "dji.sampleV5.aircraft"
     compileSdkVersion Integer.parseInt(project.ANDROID_COMPILE_SDK_VERSION)
@@ -13,13 +20,6 @@ android {
         versionCode 1
         versionName "1.0"
         
-        // Cargar llaves desde local.properties si existen, de lo contrario usar gradle.properties
-        def localProperties = new Properties()
-        def localPropertiesFile = rootProject.file('local.properties')
-        if (localPropertiesFile.exists()) {
-            localProperties.load(new FileInputStream(localPropertiesFile))
-        }
-
         manifestPlaceholders["API_KEY"] = localProperties.getProperty("AIRCRAFT_API_KEY") ?: project.AIRCRAFT_API_KEY
         manifestPlaceholders["GMAP_API_KEY"] = localProperties.getProperty("GMAP_API_KEY") ?: project.GMAP_API_KEY
         manifestPlaceholders["MAPLIBRE_TOKEN"] = localProperties.getProperty("MAPLIBRE_TOKEN") ?: project.MAPLIBRE_TOKEN
@@ -33,13 +33,8 @@ android {
     //配置签名信息
     signingConfigs {
         release {
-            def localProperties = new Properties()
-            def localPropertiesFile = rootProject.file('local.properties')
-            if (localPropertiesFile.exists()) {
-                localProperties.load(new FileInputStream(localPropertiesFile))
-            }
-
-            storeFile rootProject.file(localProperties.getProperty("STORE_FILE") ?: project.STORE_FILE)
+            def storePath = localProperties.getProperty("STORE_FILE") ?: project.STORE_FILE
+            storeFile rootProject.file(storePath)
             storePassword localProperties.getProperty("STORE_PASSWORD") ?: project.STORE_PASSWORD
             keyAlias localProperties.getProperty("KEY_ALIAS") ?: project.KEY_ALIAS
             keyPassword localProperties.getProperty("KEY_PASSWORD") ?: project.KEY_PASSWORD
@@ -104,6 +99,7 @@ android {
         doNotStrip "*/*/libagora-rtsa-sdk.so"
         doNotStrip "*/*/libc++.so"
         doNotStrip "*/*/libc++_shared.so"
+        // pickFirst 'lib/arm64-v8a/libc++_shared.so' // Already in pickFirst above
         doNotStrip "*/*/libmrtc_28181.so"
         doNotStrip "*/*/libmrtc_agora.so"
         doNotStrip "*/*/libmrtc_core.so"

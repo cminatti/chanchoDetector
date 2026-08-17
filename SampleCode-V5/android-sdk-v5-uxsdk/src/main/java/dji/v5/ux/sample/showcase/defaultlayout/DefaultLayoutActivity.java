@@ -112,6 +112,7 @@ public class DefaultLayoutActivity extends AppCompatActivity {
     protected MapWidget mapWidget;
     protected View btnToggleMap;
     private boolean useGoogleMaps = false;
+    private boolean isMapFullScreen = false;
     protected TopBarPanelWidget topBarPanel;
     protected ConstraintLayout fpvParentView;
     private DrawerLayout mDrawerLayout;
@@ -250,6 +251,71 @@ public class DefaultLayoutActivity extends AppCompatActivity {
             }
 
         });
+    }
+
+    private void initMap(Bundle savedInstanceState) {
+        if (useGoogleMaps) {
+            mapWidget.initGoogleMap(map -> {
+                DJIUiSettings uiSetting = map.getUiSettings();
+                if (uiSetting != null) {
+                    uiSetting.setZoomControlsEnabled(false);
+                }
+            });
+        } else {
+            mapWidget.initMapLibreMap(getApplicationContext(), map -> {
+                DJIUiSettings uiSetting = map.getUiSettings();
+                if (uiSetting != null) {
+                    uiSetting.setZoomControlsEnabled(false);
+                }
+            });
+        }
+        mapWidget.onCreate(savedInstanceState);
+    }
+
+    private void swapMapAndFpv() {
+        isMapFullScreen = !isMapFullScreen;
+        ConstraintLayout.LayoutParams fpvParams = (ConstraintLayout.LayoutParams) fpvParentView.getLayoutParams();
+        ConstraintLayout.LayoutParams mapParams = (ConstraintLayout.LayoutParams) mapWidget.getLayoutParams();
+
+        if (isMapFullScreen) {
+            // Map a pantalla completa
+            mapParams.width = ConstraintLayout.LayoutParams.MATCH_PARENT;
+            mapParams.height = ConstraintLayout.LayoutParams.MATCH_PARENT;
+            mapParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+            mapParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+            mapParams.setMargins(0, 0, 0, 0);
+
+            // FPV a ventana pequeña
+            fpvParams.width = ViewUtil.dip2px(this, 150);
+            fpvParams.height = ViewUtil.dip2px(this, 100);
+            fpvParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+            fpvParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+            fpvParams.setMargins(0, 0, ViewUtil.dip2px(this, 12), ViewUtil.dip2px(this, 12));
+            
+            fpvParentView.bringToFront();
+        } else {
+            // FPV a pantalla completa
+            fpvParams.width = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT;
+            fpvParams.height = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT;
+            fpvParams.topToBottom = R.id.panel_top_bar;
+            fpvParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+            fpvParams.startToStart = ConstraintLayout.LayoutParams.PARENT_ID;
+            fpvParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+            fpvParams.setMargins(0, 0, 0, 0);
+
+            // Map a ventana pequeña
+            mapParams.width = ViewUtil.dip2px(this, 150);
+            mapParams.height = ViewUtil.dip2px(this, 100);
+            mapParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+            mapParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+            mapParams.setMargins(0, 0, ViewUtil.dip2px(this, 12), ViewUtil.dip2px(this, 12));
+            
+            mapWidget.bringToFront();
+            btnToggleMap.bringToFront();
+        }
+
+        fpvParentView.setLayoutParams(fpvParams);
+        mapWidget.setLayoutParams(mapParams);
     }
 
     private void toggleRightDrawer() {
