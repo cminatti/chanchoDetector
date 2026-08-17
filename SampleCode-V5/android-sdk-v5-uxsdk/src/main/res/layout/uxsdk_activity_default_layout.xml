@@ -275,15 +275,17 @@
 
         <Button
             android:id="@+id/btn_toggle_map"
-            android:layout_width="wrap_content"
-            android:layout_height="32dp"
-            android:layout_margin="4dp"
-            android:background="#80000000"
-            android:text="MAP SOURCE"
+            android:layout_width="100dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginBottom="4dp"
+            android:background="#FF0000"
+            android:text="TOGGLE MAP"
             android:textColor="@android:color/white"
-            android:textSize="8sp"
-            app:layout_constraintTop_toTopOf="@id/widget_map"
-            app:layout_constraintEnd_toEndOf="@id/widget_map" />
+            android:textSize="10sp"
+            android:elevation="10dp"
+            app:layout_constraintBottom_toTopOf="@id/widget_map"
+            app:layout_constraintEnd_toEndOf="parent" />
 
         <dji.v5.ux.core.panel.systemstatus.SystemStatusListPanelWidget
             android:id="@+id/widget_panel_system_status_list"

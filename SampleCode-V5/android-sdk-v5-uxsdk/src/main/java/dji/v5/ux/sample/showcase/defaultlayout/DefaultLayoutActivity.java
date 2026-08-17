@@ -28,6 +28,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -181,6 +182,9 @@ public class DefaultLayoutActivity extends AppCompatActivity {
         secondaryFPVWidget.setSurfaceViewZOrderMediaOverlay(true);
 
         useGoogleMaps = getPreferences(MODE_PRIVATE).getBoolean("use_google_maps", false);
+        LogUtils.d(TAG, "Map mode: " + (useGoogleMaps ? "Google" : "MapLibre"));
+        Toast.makeText(this, "Map mode: " + (useGoogleMaps ? "Google" : "MapLibre"), Toast.LENGTH_LONG).show();
+
         if (useGoogleMaps) {
             mapWidget.initGoogleMap(map -> {
                 DJIUiSettings uiSetting = map.getUiSettings();
@@ -203,6 +207,7 @@ public class DefaultLayoutActivity extends AppCompatActivity {
             recreate();
         });
 
+        btnToggleMap.bringToFront();
         mapWidget.onCreate(savedInstanceState);
         getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
 
